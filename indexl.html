@@ -1,0 +1,338 @@
+// App.jsx
+// لعبة تعليمية بسيطة لتعليم الإسبانية للمبتدئين
+// واجهة باللغة العربية (لهجة أردنية بسيطة)
+// ملاحظات التشغيل:
+// 1) أنشئ مشروع React (مثلاً باستخدام Vite): `npm create vite@latest my-spanish-game --template react` 
+// 2) انسخ هذا الملف ليكون src/App.jsx واستبدل محتوى App.jsx.
+// 3) ثبت الحزم الإضافية إن رغبت (framer-motion اختياري): `npm install framer-motion`
+// 4) شغّل `npm install` ثم `npm run dev`.
+// متوافق مع المتصفحات الحديثة. يستخدم Web Speech API (النطق) إن توفّر، ولديه بدائل نصية إن لم تتوفر.
+
+import React, {useState, useEffect, useRef} from 'react'
+import { motion } from 'framer-motion'
+
+// بيانات الدروس — بسيطة وممكن توسعتها بسهولة
+const LESSONS = [
+  {
+    id: 'alfabeto',
+    title: 'أحرف اللغة الإسبانية',
+    desc: 'نتعلّم الحروف ونسمع طريقة النطق.',
+    items: [
+      {sp: 'a', ar: 'أ', example: 'amor — حب'},
+      {sp: 'b', ar: 'ب', example: 'bebé — طفل'},
+      {sp: 'c', ar: 'س/ك', example: 'casa — بيت'},
+      {sp: 'd', ar: 'د', example: 'día — يوم'},
+      {sp: 'e', ar: 'إ', example: 'estrella — نجمة'},
+      {sp: 'f', ar: 'ف', example: 'familia — عائلة'},
+      {sp: 'g', ar: 'ج/غ', example: 'gato — قط'},
+      {sp: 'h', ar: 'هـ (صامتة)', example: 'hombre — رجل'},
+      {sp: 'i', ar: 'إي', example: 'isla — جزيرة'},
+      {sp: 'j', ar: 'خ', example: 'jugo — عصير'},
+      {sp: 'k', ar: 'ك', example: 'kilo — كيلو'},
+      {sp: 'l', ar: 'ل', example: 'luna — قمر'},
+      {sp: 'm', ar: 'م', example: 'madre — أم'},
+      {sp: 'n', ar: 'ن', example: 'noche — ليل'},
+      {sp: 'ñ', ar: 'نيـا (ـيـ)', example: 'niño — ولد'},
+      {sp: 'o', ar: 'أو', example: 'oso — دب'},
+      {sp: 'p', ar: 'ب', example: 'padre — أب'},
+      {sp: 'q', ar: 'ك', example: 'quito — اسم'},
+      {sp: 'r', ar: 'ر (اهتزازية)', example: 'rosa — ورد'},
+      {sp: 's', ar: 'س', example: 'sol — شمس'},
+      {sp: 't', ar: 'ت', example: 'tarde — عصر'},
+      {sp: 'u', ar: 'او', example: 'uva — عنب'},
+      {sp: 'v', ar: 'ب/ف (قريبة)', example: 'vaca — بقرة'},
+      {sp: 'w', ar: 'و', example: 'whisky — ويسكي'},
+      {sp: 'x', ar: 'كس/خس', example: 'xilófono — شِلفون'},
+      {sp: 'y', ar: 'ي/و', example: 'yo — أنا'},
+      {sp: 'z', ar: 'ث/س', example: 'zapato — حذاء'},
+    ]
+  },
+  {
+    id: 'numeros',
+    title: 'الأرقام (0-10)',
+    desc: 'نعد مع بعض ونتدرّب على النطق.',
+    items: [
+      {sp: '0', ar: '٠', example: 'cero'},
+      {sp: '1', ar: '١', example: 'uno'},
+      {sp: '2', ar: '٢', example: 'dos'},
+      {sp: '3', ar: '٣', example: 'tres'},
+      {sp: '4', ar: '٤', example: 'cuatro'},
+      {sp: '5', ar: '٥', example: 'cinco'},
+      {sp: '6', ar: '٦', example: 'seis'},
+      {sp: '7', ar: '٧', example: 'siete'},
+      {sp: '8', ar: '٨', example: 'ocho'},
+      {sp: '9', ar: '٩', example: 'nueve'},
+      {sp: '10', ar: '١٠', example: 'diez'},
+    ]
+  },
+  {
+    id: 'saludos',
+    title: 'عبارات افتتاحية',
+    desc: 'تحيات وكلام بسيط للمحادثة.',
+    items: [
+      {sp: 'Hola', ar: 'مرحباً', explain: 'تحية عامة — بتقولها لأي حد.'},
+      {sp: 'Buenos días', ar: 'صباح الخير', explain: 'للصباح.'},
+      {sp: 'Buenas tardes', ar: 'مسا الخير', explain: 'للمساء.'},
+      {sp: '¿Cómo estás?', ar: 'كيف حالك؟', explain: 'لما تسأل عن الحال.'},
+      {sp: 'Gracias', ar: 'شكراً', explain: 'لما تشكر حدا.'},
+      {sp: 'Por favor', ar: 'لو سمحت', explain: 'لما تطلب شيء بأدب.'},
+      {sp: 'Adiós', ar: 'مع السلامة', explain: 'وداع.'},
+    ]
+  },
+  {
+    id: 'humanos_وامور',
+    title: 'البشر والحيوانات',
+    desc: 'كلمات بسيطة عن الناس والحيوانات — طريقة سهلة للتذكّر.' ,
+    items: [
+      {sp: 'hombre', ar: 'رَجُل', explain: 'رجل/شخص بالغ.'},
+      {sp: 'mujer', ar: 'مَرْأة', explain: 'امرأة/أنثى.'},
+      {sp: 'niño', ar: 'ولد', explain: 'طفل ذكر.'},
+      {sp: 'niña', ar: 'بنت', explain: 'طفلة.'},
+      {sp: 'gato', ar: 'قطّ', explain: 'حيوان أليف.'},
+      {sp: 'perro', ar: 'كلب', explain: 'حيوان أليف.'},
+      {sp: 'pájaro', ar: 'عصفور', explain: 'طير.'},
+      {sp: 'abuelo', ar: 'جَدّ', explain: 'جَدّ الأب/الأم.'},
+    ]
+  }
+]
+
+// مساعدة للنطق باستخدام Web Speech API
+function speak(text, lang='es-ES'){
+  if(typeof window === 'undefined') return;
+  const synth = window.speechSynthesis
+  if(!synth) return // متصفح ما يدعم
+  const utter = new SpeechSynthesisUtterance(text)
+  utter.lang = lang
+  synth.cancel()
+  synth.speak(utter)
+}
+
+function useLocalStorage(key, initial){
+  const [state, setState] = useState(()=>{
+    try{
+      const s = localStorage.getItem(key)
+      return s ? JSON.parse(s) : initial
+    }catch(e){
+      return initial
+    }
+  })
+  useEffect(()=>{
+    try{ localStorage.setItem(key, JSON.stringify(state)) }catch(e){}
+  },[key,state])
+  return [state, setState]
+}
+
+function Header({onReset}){
+  return (
+    <header className="p-4 bg-indigo-700 text-white flex items-center justify-between">
+      <div>
+        <h1 className="text-xl font-bold">تعلم الإسبانية - بطريقة بسيطة (لهجة أردنية)</h1>
+        <p className="text-sm opacity-90">دروس قصيرة، نطق، وتمارين — مناسب للموبايل والكمبيوتر</p>
+      </div>
+      <div className="flex gap-2">
+        <button onClick={onReset} className="bg-white text-indigo-700 px-3 py-1 rounded">إعادة تعيين التقدم</button>
+      </div>
+    </header>
+  )
+}
+
+function LessonCard({lesson, onOpen}){
+  return (
+    <motion.div whileHover={{scale:1.02}} className="bg-white rounded-lg shadow p-4 cursor-pointer" onClick={()=>onOpen(lesson)}>
+      <h3 className="font-semibold">{lesson.title}</h3>
+      <p className="text-sm opacity-80">{lesson.desc}</p>
+      <p className="mt-2 text-xs text-right opacity-60">عدد العناصر: {lesson.items.length}</p>
+    </motion.div>
+  )
+}
+
+function LessonView({lesson, onBack, onComplete}){
+  const [index, setIndex] = useState(0)
+  const item = lesson.items[index]
+  const [showExplain, setShowExplain] = useState(false)
+
+  useEffect(()=> setShowExplain(false), [index, lesson])
+
+  return (
+    <div className="p-4">
+      <button className="mb-3 text-sm underline" onClick={onBack}>رجوع للدروس</button>
+      <h2 className="text-2xl font-bold">{lesson.title}</h2>
+      <p className="text-sm opacity-80">{lesson.desc}</p>
+
+      <div className="mt-6 grid gap-4 sm:grid-cols-2">
+        <div className="bg-white p-6 rounded shadow text-center">
+          <div className="text-6xl font-bold">{item.sp}</div>
+          <div className="mt-2 text-xl">{item.ar || ''}</div>
+          <div className="mt-3 text-sm opacity-80">{item.example || item.explain || ''}</div>
+
+          <div className="mt-4 flex gap-2 justify-center">
+            <button className="px-4 py-2 bg-indigo-600 text-white rounded" onClick={()=>speak(item.sp)}>اسمع النطق</button>
+            <button className="px-4 py-2 border rounded" onClick={()=>setShowExplain(s=>!s)}>{showExplain ? 'خفّي الشرح' : 'عرض شرح'}</button>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded shadow">
+          <h4 className="font-semibold">تدريب سريع</h4>
+          <p className="text-sm opacity-80">جرّب تختار المعنى الصحيح.</p>
+          <QuickQuiz item={item} onCorrect={()=>{ /* no-op */ }} />
+
+          <div className="mt-4 flex justify-between">
+            <button disabled={index===0} onClick={()=>setIndex(i=>Math.max(0,i-1))} className="px-3 py-1 border rounded">رجوع</button>
+            <div>
+              <button onClick={()=>{
+                if(index < lesson.items.length-1) setIndex(i=>i+1)
+                else onComplete()
+              }} className="px-3 py-1 bg-indigo-600 text-white rounded">{index < lesson.items.length-1 ? 'التالي' : 'انتهى الدرس'}</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      {showExplain && (
+        <div className="mt-4 bg-white p-4 rounded shadow">
+          <h4 className="font-semibold">شرح</h4>
+          <p className="text-sm opacity-90">{item.explain || 'هذا مثال لتوضيح الكلمة.'}</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function QuickQuiz({item, onCorrect}){
+  const choices = useRef([])
+  const [selected, setSelected] = useState(null)
+  const [feedback, setFeedback] = useState(null)
+
+  useEffect(()=>{
+    // جهّز اختيارات عشوائية
+    const correct = item.ar || item.example || item.explain || item.sp
+    const pool = [correct]
+    // نضيف اختيارات مزيفة من بقية الدروس
+    LESSONS.flatMap(l=>l.items).slice(0,6).forEach(it=>{
+      const t = it.ar || it.example || it.explain || it.sp
+      if(pool.length < 4 && !pool.includes(t)) pool.push(t)
+    })
+    // ملّف للاختيار
+    while(pool.length < 4){ pool.push('...') }
+    // خلط
+    for(let i=pool.length-1;i>0;i--){
+      const j = Math.floor(Math.random()*(i+1)); [pool[i], pool[j]] = [pool[j], pool[i]]
+    }
+    choices.current = pool
+    setSelected(null); setFeedback(null)
+  },[item])
+
+  function choose(c){
+    setSelected(c)
+    const correct = item.ar || item.example || item.explain || item.sp
+    if(c === correct){ setFeedback('صح!') ; onCorrect && onCorrect() }
+    else setFeedback('لا، جرّب مرة تانية')
+  }
+
+  return (
+    <div className="mt-2">
+      {choices.current.map((c,idx)=> (
+        <button key={idx} onClick={()=>choose(c)} className={`block w-full text-right p-2 my-1 rounded ${selected===c ? 'ring-2 ring-indigo-400' : 'border'}`}>
+          {c}
+        </button>
+      ))}
+      {feedback && <div className="mt-2 text-sm font-semibold">{feedback}</div>}
+    </div>
+  )
+}
+
+function QuizMode({onBack, onComplete}){
+  const pool = LESSONS.flatMap(l=>l.items).slice(0,20)
+  const [i, setI] = useState(0)
+  const [score, setScore] = useState(0)
+  const item = pool[i]
+
+  function handleAnswer(correct){
+    if(correct) setScore(s=>s+1)
+    if(i < pool.length-1) setI(n=>n+1)
+    else onComplete(score + (correct?1:0), pool.length)
+  }
+
+  return (
+    <div className="p-4">
+      <button className="mb-3 text-sm underline" onClick={onBack}>رجوع</button>
+      <h2 className="text-xl font-bold">وضع الاختبار السريع</h2>
+      <p className="text-sm opacity-80">اختبار مبسّط: اختر المعنى الصحيح.</p>
+
+      <div className="mt-4 bg-white p-4 rounded shadow">
+        <div className="text-4xl font-bold">{item.sp}</div>
+        <div className="mt-3"><QuickQuiz item={item} onCorrect={()=>handleAnswer(true)} /></div>
+
+        <div className="mt-4 text-sm opacity-80">سؤال {i+1} من {pool.length} — نتيجة حالية: {score}</div>
+      </div>
+    </div>
+  )
+}
+
+export default function App(){
+  const [view, setView] = useState('home') // home, lesson, quiz
+  const [currentLesson, setCurrentLesson] = useState(null)
+  const [progress, setProgress] = useLocalStorage('spanish_game_progress', {})
+  const [lastScore, setLastScore] = useLocalStorage('spanish_game_lastscore', null)
+
+  function openLesson(lesson){ setCurrentLesson(lesson); setView('lesson') }
+  function completeLesson(lesson){
+    const p = {...progress}
+    p[lesson.id] = (p[lesson.id] || 0) + 1
+    setProgress(p)
+    setView('home')
+  }
+
+  function resetProgress(){ if(confirm('بدك تعيد التقدم؟')){ setProgress({}); setLastScore(null) } }
+
+  return (
+    <div className="min-h-screen bg-gray-100 text-gray-900">
+      <Header onReset={resetProgress} />
+      <main className="p-4 max-w-4xl mx-auto">
+        {view === 'home' && (
+          <div>
+            <section className="grid gap-4 sm:grid-cols-2 mb-6">
+              {LESSONS.map(ls=> (
+                <LessonCard key={ls.id} lesson={ls} onOpen={openLesson} />
+              ))}
+            </section>
+
+            <section className="mb-6 bg-white p-4 rounded shadow">
+              <h3 className="font-semibold">تقدّمك</h3>
+              <p className="text-sm opacity-80">عدد المرات اللي خلّصت فيها كل درس:</p>
+              <ul className="mt-2 text-sm">
+                {LESSONS.map(ls=> (
+                  <li key={ls.id} className="flex justify-between border-b py-2"> <span>{ls.title}</span> <span>{progress[ls.id]||0} مرات</span> </li>
+                ))}
+              </ul>
+
+              <div className="mt-3 flex gap-2">
+                <button className="px-3 py-1 bg-green-600 text-white rounded" onClick={()=>setView('quiz')}>اختبار سريع</button>
+                <button className="px-3 py-1 border rounded" onClick={()=>{ speak('Hola! Bienvenido!') }}>جرب النطق العام</button>
+              </div>
+
+              {lastScore && (
+                <div className="mt-3 text-sm">آخر نتيجة اختبار: {lastScore.correct}/{lastScore.total}</div>
+              )}
+            </section>
+
+            <section className="text-xs opacity-80">
+              <p>ملاحظات: اللعبة تشتغل أوفلاين بعد التحميل الكامل للصفحة على المتصفح. لو المتصفح ما دعم Web Speech API، راح تظل الوظائف النصيّة سليمة (إظهار وشرح).</p>
+            </section>
+          </div>
+        )}
+
+        {view === 'lesson' && currentLesson && (
+          <LessonView lesson={currentLesson} onBack={()=>setView('home')} onComplete={()=>completeLesson(currentLesson)} />
+        )}
+
+        {view === 'quiz' && (
+          <QuizMode onBack={()=>setView('home')} onComplete={(correct,total)=>{ setLastScore({correct,total}); setView('home') }} />
+        )}
+      </main>
+
+      <footer className="p-4 text-center text-sm opacity-70">صنع لك كمثال تعليمي — تقدر تطوّره، تضيف أصوات محترفة، وصور لحيوانات/بشر لزيادة التفاعل.</footer>
+    </div>
+  )
+}
